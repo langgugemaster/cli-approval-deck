@@ -28,12 +28,20 @@ back to the matching CLI session.
 Already-running CLI sessions cannot be attached reliably because their PTYs belong to
 their existing terminal processes. Restart those sessions through `cli-approval-run`.
 
-## Optional shell alias
+## Shell integration
 
 ```bash
-alias codex-float='/Users/samuel/cli-approval-float/bin/cli-approval-run codex'
-alias claude-float='/Users/samuel/cli-approval-float/bin/cli-approval-run claude'
+codex() {
+  /Users/samuel/cli-approval-float/bin/cli-approval-run /opt/homebrew/bin/codex "$@"
+}
+
+claude() {
+  /Users/samuel/cli-approval-float/bin/cli-approval-run /Users/samuel/.local/bin/claude "$@"
+}
 ```
+
+Add these functions to `~/.zshrc`, then open a new terminal or run `source ~/.zshrc`.
+Typing the normal `codex` or `claude` command will then enable monitoring automatically.
 
 ## Verify
 
