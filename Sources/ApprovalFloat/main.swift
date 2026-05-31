@@ -31,7 +31,7 @@ private final class PixelBoxView: NSView {
 }
 
 private final class PixelButton: NSButton {
-    init(title: String, target: AnyObject?, action: Selector?) {
+    init(title: String, target: AnyObject?, action: Selector?, height: CGFloat = 30) {
         super.init(frame: .zero)
         self.title = title
         self.target = target
@@ -43,7 +43,7 @@ private final class PixelButton: NSButton {
         layer?.cornerRadius = 0
         layer?.borderWidth = 2
         translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: 30).isActive = true
+        heightAnchor.constraint(equalToConstant: height).isActive = true
         refreshColors()
     }
 
@@ -100,15 +100,14 @@ final class ApprovalPanelController: NSWindowController {
     private let queueLabel = makeLabel("[ QUEUE 0 ]", size: 11, color: PixelTheme.mutedText, weight: .bold)
     private let commandLabel = makeLabel("WAITING FOR CODEX OR CLAUDE...", size: 11, color: PixelTheme.mutedText)
     private let promptLabel = makeLabel("PTY MONITOR ONLINE", size: 11, color: PixelTheme.text)
-    private var buttons: [PixelButton] = []
+    private var confirmButton: PixelButton?
     private var pendingApprovals: [PendingApproval] = []
-    private var selectedIndex = 0
     private var pending: PendingApproval?
     private var timer: Timer?
 
     init() {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 330),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 265),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -175,28 +174,18 @@ final class ApprovalPanelController: NSWindowController {
             promptLabel.topAnchor.constraint(equalTo: promptBox.topAnchor, constant: 9)
         ])
 
-        let previousButton = PixelButton(title: "< PREV", target: self, action: #selector(showPrevious))
-        let nextButton = PixelButton(title: "NEXT >", target: self, action: #selector(showNext))
-        previousButton.alignment = .center
-        nextButton.alignment = .center
-        let navigationStack = NSStackView(views: [previousButton, nextButton])
-        navigationStack.orientation = .horizontal
-        navigationStack.distribution = .fillEqually
-        navigationStack.spacing = 8
-
-        let buttonStack = NSStackView()
-        buttonStack.orientation = .vertical
-        buttonStack.spacing = 7
-        for index in 0..<3 {
-            let button = PixelButton(title: "[ \(index + 1) ] WAITING...", target: self, action: #selector(selectOption(_:)))
-            button.tag = index
-            button.isEnabled = false
-            buttons.append(button)
-            buttonStack.addArrangedSubview(button)
-        }
+        let confirmButton = PixelButton(
+            title: "[ APPROVE ] AWAITING REQUEST...",
+            target: self,
+            action: #selector(confirmApproval),
+            height: 54
+        )
+        confirmButton.alignment = .center
+        confirmButton.isEnabled = false
+        self.confirmButton = confirmButton
 
         let footer = makeLabel("DRAG TO MOVE  //  ALWAYS ON TOP  //  LIVE PTY LINK", size: 9, color: PixelTheme.mutedText)
-        let stack = NSStackView(views: [titleRow, statusRow, commandLabel, promptBox, navigationStack, buttonStack, footer])
+        let stack = NSStackView(views: [titleRow, statusRow, commandLabel, promptBox, confirmButton, footer])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 9
@@ -207,8 +196,7 @@ final class ApprovalPanelController: NSWindowController {
             stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -14),
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 12),
             promptBox.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            navigationStack.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            buttonStack.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            confirmButton.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
         return content
     }
@@ -227,57 +215,41 @@ final class ApprovalPanelController: NSWindowController {
         }
         guard !pendingApprovals.isEmpty else {
             pending = nil
-            selectedIndex = 0
             statusDot.stringValue = "[*]"
             statusDot.textColor = PixelTheme.border
             statusLabel.stringValue = "SCANNING FOR CLI REQUESTS"
             queueLabel.stringValue = "[ QUEUE 0 ]"
             commandLabel.stringValue = "WAITING FOR CODEX OR CLAUDE..."
             promptLabel.stringValue = "PTY MONITOR ONLINE\nNO APPROVAL REQUESTS DETECTED"
-            updateButtons(with: [])
+            updateConfirmButton(with: nil)
             return
         }
-        selectedIndex = min(selectedIndex, pendingApprovals.count - 1)
-        let pending = pendingApprovals[selectedIndex]
+        let pending = pendingApprovals[0]
         self.pending = pending
         statusDot.stringValue = "[!]"
         statusDot.textColor = PixelTheme.alert
         statusLabel.stringValue = "AUTHORIZATION REQUIRED"
-        queueLabel.stringValue = "[ \(selectedIndex + 1) / \(pendingApprovals.count) ]"
+        queueLabel.stringValue = "[ QUEUE \(pendingApprovals.count) ]"
         commandLabel.stringValue = "> \(pending.command)"
         promptLabel.stringValue = pending.prompt
-        updateButtons(with: pending.options)
+        updateConfirmButton(with: pending.options.first)
     }
 
-    @objc private func showPrevious() {
-        guard !pendingApprovals.isEmpty else { return }
-        selectedIndex = (selectedIndex - 1 + pendingApprovals.count) % pendingApprovals.count
-        refresh()
-    }
-
-    @objc private func showNext() {
-        guard !pendingApprovals.isEmpty else { return }
-        selectedIndex = (selectedIndex + 1) % pendingApprovals.count
-        refresh()
-    }
-
-    private func updateButtons(with options: [ApprovalOption]) {
-        for (index, button) in buttons.enumerated() {
-            if index < options.count {
-                button.title = "[ \(options[index].key) ] \(options[index].label.uppercased())"
-                button.isEnabled = true
-            } else {
-                button.title = "[ \(index + 1) ] WAITING..."
-                button.isEnabled = false
-            }
+    private func updateConfirmButton(with option: ApprovalOption?) {
+        if let option {
+            confirmButton?.title = "[ APPROVE ] CONFIRM // \(option.label.uppercased())"
+            confirmButton?.isEnabled = true
+        } else {
+            confirmButton?.title = "[ APPROVE ] AWAITING REQUEST..."
+            confirmButton?.isEnabled = false
         }
     }
 
-    @objc private func selectOption(_ sender: NSButton) {
-        guard let pending, sender.tag < pending.options.count else { return }
+    @objc private func confirmApproval() {
+        guard let pending, let option = pending.options.first else { return }
         do {
-            try store.submit(pending.options[sender.tag], for: pending)
-            statusLabel.stringValue = "RESPONSE \(pending.options[sender.tag].key) TRANSMITTED"
+            try store.submit(option, for: pending)
+            statusLabel.stringValue = "APPROVAL TRANSMITTED"
         } catch {
             statusDot.stringValue = "[!]"
             statusDot.textColor = PixelTheme.error
