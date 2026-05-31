@@ -63,3 +63,19 @@ import Testing
     let store = ApprovalStore(directory: directory)
     #expect(try store.loadPending() == [older, newer])
 }
+
+@Test func approveOptionAlwaysUsesFirstMenuChoice() {
+    let pending = PendingApproval(
+        requestId: "abc",
+        command: "codex",
+        prompt: "Allow command?",
+        options: [
+            ApprovalOption(key: "2", label: "Allow for session"),
+            ApprovalOption(key: "1", label: "Allow once"),
+            ApprovalOption(key: "3", label: "Reject")
+        ],
+        createdAt: "2026-05-30T00:00:00Z"
+    )
+
+    #expect(pending.approveOption == ApprovalOption(key: "1", label: "Allow once"))
+}

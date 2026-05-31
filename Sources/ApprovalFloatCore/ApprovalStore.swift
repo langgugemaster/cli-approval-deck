@@ -30,6 +30,10 @@ public struct PendingApproval: Codable, Equatable {
         self.options = options
         self.createdAt = createdAt
     }
+
+    public var approveOption: ApprovalOption? {
+        options.first { $0.key == "1" }
+    }
 }
 
 public final class ApprovalStore {

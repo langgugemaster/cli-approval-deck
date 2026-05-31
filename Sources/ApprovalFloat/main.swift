@@ -36,6 +36,7 @@ private final class PixelButton: NSButton {
         self.title = title
         self.target = target
         self.action = action
+        setButtonType(.momentaryPushIn)
         isBordered = false
         font = PixelTheme.font(size: 12, weight: .bold)
         alignment = .left
@@ -107,7 +108,7 @@ final class ApprovalPanelController: NSWindowController {
 
     init() {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 265),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 355),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -159,7 +160,7 @@ final class ApprovalPanelController: NSWindowController {
         statusRow.spacing = 7
 
         commandLabel.lineBreakMode = .byTruncatingMiddle
-        promptLabel.maximumNumberOfLines = 5
+        promptLabel.maximumNumberOfLines = 10
         promptLabel.lineBreakMode = .byWordWrapping
         promptLabel.cell?.wraps = true
 
@@ -168,14 +169,14 @@ final class ApprovalPanelController: NSWindowController {
         promptBox.addSubview(promptLabel)
         promptLabel.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            promptBox.heightAnchor.constraint(equalToConstant: 76),
+            promptBox.heightAnchor.constraint(equalToConstant: 158),
             promptLabel.leadingAnchor.constraint(equalTo: promptBox.leadingAnchor, constant: 10),
             promptLabel.trailingAnchor.constraint(equalTo: promptBox.trailingAnchor, constant: -10),
             promptLabel.topAnchor.constraint(equalTo: promptBox.topAnchor, constant: 9)
         ])
 
         let confirmButton = PixelButton(
-            title: "[ APPROVE ] AWAITING REQUEST...",
+            title: "[ APPROVE REQUEST ]",
             target: self,
             action: #selector(confirmApproval),
             height: 54
@@ -232,21 +233,18 @@ final class ApprovalPanelController: NSWindowController {
         queueLabel.stringValue = "[ QUEUE \(pendingApprovals.count) ]"
         commandLabel.stringValue = "> \(pending.command)"
         promptLabel.stringValue = pending.prompt
-        updateConfirmButton(with: pending.options.first)
+        updateConfirmButton(with: pending.approveOption)
     }
 
     private func updateConfirmButton(with option: ApprovalOption?) {
-        if let option {
-            confirmButton?.title = "[ APPROVE ] CONFIRM // \(option.label.uppercased())"
-            confirmButton?.isEnabled = true
-        } else {
-            confirmButton?.title = "[ APPROVE ] AWAITING REQUEST..."
-            confirmButton?.isEnabled = false
-        }
+        confirmButton?.title = option == nil
+            ? "[ APPROVE REQUEST ] AWAITING REQUEST..."
+            : "[ APPROVE REQUEST ]"
+        confirmButton?.isEnabled = option != nil
     }
 
     @objc private func confirmApproval() {
-        guard let pending, let option = pending.options.first else { return }
+        guard let pending, let option = pending.approveOption else { return }
         do {
             try store.submit(option, for: pending)
             statusLabel.stringValue = "APPROVAL TRANSMITTED"
