@@ -30,6 +30,73 @@ private final class PixelBoxView: NSView {
     }
 }
 
+private final class PixelDuckView: NSView {
+    var isApprovalRaised = false {
+        didSet { needsDisplay = true }
+    }
+
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.clear.setFill()
+        bounds.fill()
+
+        let pixel: CGFloat = 6
+        let originX = floor((bounds.width - (22 * pixel)) / 2)
+        let originY: CGFloat = 2
+
+        func block(_ x: Int, _ y: Int, _ width: Int, _ height: Int, _ color: NSColor) {
+            color.setFill()
+            NSRect(
+                x: originX + CGFloat(x) * pixel,
+                y: originY + CGFloat(y) * pixel,
+                width: CGFloat(width) * pixel,
+                height: CGFloat(height) * pixel
+            ).fill()
+        }
+
+        let outline = NSColor(calibratedRed: 0.12, green: 0.16, blue: 0.17, alpha: 1)
+        let duck = NSColor(calibratedRed: 1, green: 0.82, blue: 0.18, alpha: 1)
+        let duckLight = NSColor(calibratedRed: 1, green: 0.92, blue: 0.38, alpha: 1)
+        let beak = NSColor(calibratedRed: 1, green: 0.48, blue: 0.15, alpha: 1)
+        let sign = NSColor(calibratedRed: 0.18, green: 0.92, blue: 0.52, alpha: 1)
+
+        block(6, 0, 11, 2, outline)
+        block(4, 2, 15, 2, outline)
+        block(3, 4, 16, 5, outline)
+        block(5, 9, 10, 5, outline)
+        block(17, 7, 4, 3, outline)
+        block(5, 2, 13, 6, duck)
+        block(6, 8, 8, 5, duckLight)
+        block(18, 8, 4, 1, beak)
+        block(8, 11, 1, 1, outline)
+        block(8, 12, 1, 1, duckLight)
+        block(6, 0, 2, 2, beak)
+        block(14, 0, 2, 2, beak)
+
+        if isApprovalRaised {
+            block(2, 8, 2, 7, outline)
+            block(1, 15, 10, 1, outline)
+            block(1, 21, 10, 1, outline)
+            block(0, 16, 1, 5, outline)
+            block(11, 16, 1, 5, outline)
+            block(1, 16, 10, 5, sign)
+            block(3, 18, 2, 1, outline)
+            block(4, 17, 2, 1, outline)
+            block(5, 18, 1, 1, outline)
+            block(6, 19, 3, 1, outline)
+        } else {
+            block(2, 4, 2, 4, outline)
+            block(0, 0, 8, 1, outline)
+            block(0, 4, 8, 1, outline)
+            block(0, 1, 1, 3, outline)
+            block(7, 1, 1, 3, outline)
+            block(1, 1, 6, 3, PixelTheme.panel)
+            block(2, 2, 4, 1, PixelTheme.mutedBorder)
+        }
+    }
+}
+
 private final class PixelButton: NSButton {
     init(title: String, target: AnyObject?, action: Selector?, height: CGFloat = 30) {
         super.init(frame: .zero)
@@ -101,6 +168,7 @@ final class ApprovalPanelController: NSWindowController {
     private let queueLabel = makeLabel("[ QUEUE 0 ]", size: 11, color: PixelTheme.mutedText, weight: .bold)
     private let commandLabel = makeLabel("WAITING FOR CODEX OR CLAUDE...", size: 11, color: PixelTheme.mutedText)
     private let promptLabel = makeLabel("PTY MONITOR ONLINE", size: 11, color: PixelTheme.text)
+    private let duckView = PixelDuckView()
     private var confirmButton: PixelButton?
     private var pendingApprovals: [PendingApproval] = []
     private var pending: PendingApproval?
@@ -109,7 +177,7 @@ final class ApprovalPanelController: NSWindowController {
 
     init() {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 355),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 493),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -141,9 +209,14 @@ final class ApprovalPanelController: NSWindowController {
     }
 
     private func makeContentView() -> NSView {
-        let content = PixelBoxView()
-        content.borderColor = PixelTheme.border
-        content.fillColor = PixelTheme.background
+        let content = NSView()
+        let panelBox = PixelBoxView()
+        panelBox.borderColor = PixelTheme.border
+        panelBox.fillColor = PixelTheme.background
+        panelBox.translatesAutoresizingMaskIntoConstraints = false
+        duckView.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(panelBox)
+        content.addSubview(duckView)
 
         let titleLabel = makeLabel(":: CLI APPROVAL DECK ::", size: 14, color: PixelTheme.border, weight: .heavy)
         let hideButton = PixelButton(title: "[ _ ]", target: self, action: #selector(hidePanel))
@@ -195,11 +268,19 @@ final class ApprovalPanelController: NSWindowController {
         stack.alignment = .leading
         stack.spacing = 9
         stack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stack)
+        panelBox.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -14),
-            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 12),
+            duckView.topAnchor.constraint(equalTo: content.topAnchor),
+            duckView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            duckView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            duckView.heightAnchor.constraint(equalToConstant: 138),
+            panelBox.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            panelBox.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            panelBox.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            panelBox.heightAnchor.constraint(equalToConstant: 355),
+            stack.leadingAnchor.constraint(equalTo: panelBox.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: panelBox.trailingAnchor, constant: -14),
+            stack.topAnchor.constraint(equalTo: panelBox.topAnchor, constant: 12),
             promptBox.widthAnchor.constraint(equalTo: stack.widthAnchor),
             confirmButton.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
@@ -222,6 +303,7 @@ final class ApprovalPanelController: NSWindowController {
         }
         guard !pendingApprovals.isEmpty else {
             pending = nil
+            duckView.isApprovalRaised = false
             statusDot.stringValue = "[*]"
             statusDot.textColor = PixelTheme.border
             statusLabel.stringValue = "SCANNING FOR CLI REQUESTS"
@@ -233,6 +315,7 @@ final class ApprovalPanelController: NSWindowController {
         }
         let pending = pendingApprovals[0]
         self.pending = pending
+        duckView.isApprovalRaised = true
         statusDot.stringValue = "[!]"
         statusDot.textColor = PixelTheme.alert
         statusLabel.stringValue = "AUTHORIZATION REQUIRED"
@@ -284,7 +367,7 @@ final class ApprovalPanelController: NSWindowController {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         panelController = ApprovalPanelController()
-        panelController?.showWindow(nil)
+        panelController?.showPanel()
         makeStatusItem()
     }
 
