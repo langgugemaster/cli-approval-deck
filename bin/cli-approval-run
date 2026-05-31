@@ -1,0 +1,4 @@
+#!/bin/zsh
+set -euo pipefail
+PROJECT_DIR=${0:A:h:h}
+PYTHONPATH="$PROJECT_DIR${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m cli_approval_float.proxy "$@"
