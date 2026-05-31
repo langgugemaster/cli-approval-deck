@@ -20,9 +20,13 @@ In another terminal, run a CLI through the PTY proxy:
 /Users/samuel/cli-approval-float/bin/cli-approval-run claude
 ```
 
-The proxy leaves the terminal fully interactive. When it detects an authorization
-prompt containing exactly three numbered choices, the panel displays the choices and
-sends the selected number back to that CLI session.
+The proxy leaves each terminal fully interactive. Start every CLI session through the
+proxy. When one or more sessions show authorization prompts containing exactly three
+numbered choices, the panel displays the pending queue and sends each selected number
+back to the matching CLI session.
+
+Already-running CLI sessions cannot be attached reliably because their PTYs belong to
+their existing terminal processes. Restart those sessions through `cli-approval-run`.
 
 ## Optional shell alias
 

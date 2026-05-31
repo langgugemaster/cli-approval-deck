@@ -46,12 +46,19 @@ public final class ApprovalStore {
         self.fileManager = fileManager
     }
 
-    public func loadPending() throws -> PendingApproval? {
-        let url = directory.appendingPathComponent("pending.json")
-        guard fileManager.fileExists(atPath: url.path) else {
-            return nil
+    public func loadPending() throws -> [PendingApproval] {
+        let pendingDirectory = directory.appendingPathComponent("pending", isDirectory: true)
+        guard fileManager.fileExists(atPath: pendingDirectory.path) else {
+            return []
         }
-        return try decoder.decode(PendingApproval.self, from: Data(contentsOf: url))
+        let urls = try fileManager.contentsOfDirectory(
+            at: pendingDirectory,
+            includingPropertiesForKeys: nil
+        )
+        return try urls
+            .filter { $0.pathExtension == "json" }
+            .map { try decoder.decode(PendingApproval.self, from: Data(contentsOf: $0)) }
+            .sorted { $0.createdAt < $1.createdAt }
     }
 
     public func submit(_ option: ApprovalOption, for approval: PendingApproval) throws {

@@ -7,6 +7,8 @@ final class ApprovalPanelController: NSWindowController {
     private let commandLabel = NSTextField(labelWithString: "请用 cli-approval-run 启动命令")
     private let promptLabel = NSTextField(wrappingLabelWithString: "")
     private var buttons: [NSButton] = []
+    private var pendingApprovals: [PendingApproval] = []
+    private var selectedIndex = 0
     private var pending: PendingApproval?
     private var timer: Timer?
 
@@ -49,6 +51,12 @@ final class ApprovalPanelController: NSWindowController {
         promptLabel.font = .systemFont(ofSize: 12)
         promptLabel.maximumNumberOfLines = 4
 
+        let previousButton = NSButton(title: "上一条", target: self, action: #selector(showPrevious))
+        let nextButton = NSButton(title: "下一条", target: self, action: #selector(showNext))
+        let navigationStack = NSStackView(views: [previousButton, nextButton])
+        navigationStack.orientation = .horizontal
+        navigationStack.spacing = 8
+
         let buttonStack = NSStackView()
         buttonStack.orientation = .vertical
         buttonStack.spacing = 6
@@ -61,7 +69,7 @@ final class ApprovalPanelController: NSWindowController {
             buttonStack.addArrangedSubview(button)
         }
 
-        let stack = NSStackView(views: [statusLabel, commandLabel, promptLabel, buttonStack])
+        let stack = NSStackView(views: [statusLabel, commandLabel, promptLabel, navigationStack, buttonStack])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -79,23 +87,41 @@ final class ApprovalPanelController: NSWindowController {
     @objc private func refresh() {
         window?.orderFrontRegardless()
         do {
-            pending = try store.loadPending()
+            pendingApprovals = try store.loadPending()
         } catch {
+            pendingApprovals = []
             pending = nil
             statusLabel.stringValue = "读取授权请求失败"
             promptLabel.stringValue = error.localizedDescription
         }
-        guard let pending else {
+        guard !pendingApprovals.isEmpty else {
+            pending = nil
+            selectedIndex = 0
             statusLabel.stringValue = "等待 CLI 授权请求"
             commandLabel.stringValue = "请用 cli-approval-run 启动命令"
             promptLabel.stringValue = ""
             updateButtons(with: [])
             return
         }
-        statusLabel.stringValue = "有待确认的授权请求"
+        selectedIndex = min(selectedIndex, pendingApprovals.count - 1)
+        let pending = pendingApprovals[selectedIndex]
+        self.pending = pending
+        statusLabel.stringValue = "待确认 \(pendingApprovals.count) 条，当前 \(selectedIndex + 1)/\(pendingApprovals.count)"
         commandLabel.stringValue = pending.command
         promptLabel.stringValue = pending.prompt
         updateButtons(with: pending.options)
+    }
+
+    @objc private func showPrevious() {
+        guard !pendingApprovals.isEmpty else { return }
+        selectedIndex = (selectedIndex - 1 + pendingApprovals.count) % pendingApprovals.count
+        refresh()
+    }
+
+    @objc private func showNext() {
+        guard !pendingApprovals.isEmpty else { return }
+        selectedIndex = (selectedIndex + 1) % pendingApprovals.count
+        refresh()
     }
 
     private func updateButtons(with options: [ApprovalOption]) {

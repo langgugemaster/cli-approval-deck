@@ -7,7 +7,6 @@ import pty
 import re
 import select
 import shutil
-import signal
 import sys
 import time
 import uuid
@@ -52,10 +51,10 @@ def detect_prompt(text: str) -> tuple[str, list[Option]] | None:
 class ApprovalFiles:
     def __init__(self, directory: Path) -> None:
         self.directory = directory
-        self.pending_path = directory / "pending.json"
+        self.pending_directory = directory / "pending"
 
     def publish(self, command: list[str], prompt: str, options: list[Option]) -> str:
-        self.directory.mkdir(parents=True, exist_ok=True)
+        self.pending_directory.mkdir(parents=True, exist_ok=True)
         request_id = uuid.uuid4().hex
         payload = {
             "requestId": request_id,
@@ -64,9 +63,10 @@ class ApprovalFiles:
             "options": [{"key": item.key, "label": item.label} for item in options],
             "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
-        temporary = self.pending_path.with_suffix(".tmp")
+        pending_path = self.pending_directory / f"{request_id}.json"
+        temporary = pending_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(self.pending_path)
+        temporary.replace(pending_path)
         return request_id
 
     def consume_response(self, request_id: str) -> str | None:
@@ -75,11 +75,12 @@ class ApprovalFiles:
             return None
         key = response.read_text(encoding="utf-8").strip()
         response.unlink()
-        self.pending_path.unlink(missing_ok=True)
+        self.clear(request_id)
         return key
 
-    def clear(self) -> None:
-        self.pending_path.unlink(missing_ok=True)
+    def clear(self, request_id: str | None) -> None:
+        if request_id is not None:
+            (self.pending_directory / f"{request_id}.json").unlink(missing_ok=True)
 
 
 def run(command: list[str], state_dir: Path) -> int:
@@ -90,7 +91,6 @@ def run(command: list[str], state_dir: Path) -> int:
         raise FileNotFoundError(f"command not found: {command[0]}")
 
     files = ApprovalFiles(state_dir)
-    files.clear()
     pid, fd = pty.fork()
     if pid == 0:
         os.execvp(executable, command)
@@ -130,7 +130,7 @@ def run(command: list[str], state_dir: Path) -> int:
                     last_signature = None
                     buffer = ""
     finally:
-        files.clear()
+        files.clear(request_id)
     _, status = os.waitpid(pid, 0)
     return os.waitstatus_to_exitcode(status)
 

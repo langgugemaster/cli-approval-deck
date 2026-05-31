@@ -46,13 +46,30 @@ class ApprovalFilesTests(unittest.TestCase):
                     "Allow?",
                     [Option("1", "Allow"), Option("2", "Always"), Option("3", "Reject")],
                 )
-            payload = json.loads(files.pending_path.read_text(encoding="utf-8"))
+            payload = json.loads(
+                (files.pending_directory / "request-id.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(request_id, "request-id")
             self.assertEqual(payload["command"], "codex --help")
 
             (Path(temporary) / "response-request-id.txt").write_text("2", encoding="utf-8")
             self.assertEqual(files.consume_response(request_id), "2")
-            self.assertFalse(files.pending_path.exists())
+            self.assertFalse((files.pending_directory / "request-id.json").exists())
+
+    def test_multiple_requests_do_not_overwrite_each_other(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            files = ApprovalFiles(Path(temporary))
+            with patch("cli_approval_float.proxy.uuid.uuid4") as uuid4:
+                uuid4.return_value.hex = "first"
+                files.publish(["codex"], "Allow?", [Option("1", "Allow")])
+                uuid4.return_value.hex = "second"
+                files.publish(["claude"], "Proceed?", [Option("1", "Yes")])
+
+            pending = sorted(path.name for path in files.pending_directory.glob("*.json"))
+            self.assertEqual(pending, ["first.json", "second.json"])
+            files.clear("first")
+            self.assertFalse((files.pending_directory / "first.json").exists())
+            self.assertTrue((files.pending_directory / "second.json").exists())
 
 
 if __name__ == "__main__":
