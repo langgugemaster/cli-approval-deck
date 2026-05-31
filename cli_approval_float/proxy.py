@@ -7,8 +7,12 @@ import pty
 import re
 import select
 import shutil
+import signal
+import struct
 import sys
+import termios
 import time
+import tty
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +50,13 @@ def detect_prompt(text: str) -> tuple[str, list[Option]] | None:
         return None
     prompt_lines = [line.strip() for line in lines[-12:] if line.strip()]
     return "\n".join(prompt_lines), options
+
+
+def copy_terminal_size(source_fd: int, target_fd: int) -> None:
+    if not os.isatty(source_fd):
+        return
+    size = termios.tcgetwinsize(source_fd)
+    termios.tcsetwinsize(target_fd, size)
 
 
 class ApprovalFiles:
@@ -99,7 +110,18 @@ def run(command: list[str], state_dir: Path) -> int:
     request_id: str | None = None
     last_signature: tuple[Option, ...] | None = None
     stdin_fd = sys.stdin.fileno()
+    stdin_is_tty = os.isatty(stdin_fd)
+    original_terminal_attributes = termios.tcgetattr(stdin_fd) if stdin_is_tty else None
+
+    def forward_window_size(_signum: int, _frame: object) -> None:
+        copy_terminal_size(stdin_fd, fd)
+
+    previous_window_handler = signal.getsignal(signal.SIGWINCH)
     try:
+        copy_terminal_size(stdin_fd, fd)
+        signal.signal(signal.SIGWINCH, forward_window_size)
+        if stdin_is_tty:
+            tty.setraw(stdin_fd)
         while True:
             ready, _, _ = select.select([fd, stdin_fd], [], [], 0.2)
             if fd in ready:
@@ -130,6 +152,9 @@ def run(command: list[str], state_dir: Path) -> int:
                     last_signature = None
                     buffer = ""
     finally:
+        signal.signal(signal.SIGWINCH, previous_window_handler)
+        if original_terminal_attributes is not None:
+            termios.tcsetattr(stdin_fd, termios.TCSAFLUSH, original_terminal_attributes)
         files.clear(request_id)
     _, status = os.waitpid(pid, 0)
     return os.waitstatus_to_exitcode(status)

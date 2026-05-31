@@ -1,10 +1,19 @@
 import json
+import os
+import pty
 import tempfile
+import termios
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cli_approval_float.proxy import ApprovalFiles, Option, detect_prompt, strip_ansi
+from cli_approval_float.proxy import (
+    ApprovalFiles,
+    Option,
+    copy_terminal_size,
+    detect_prompt,
+    strip_ansi,
+)
 
 
 class DetectPromptTests(unittest.TestCase):
@@ -70,6 +79,28 @@ class ApprovalFilesTests(unittest.TestCase):
             files.clear("first")
             self.assertFalse((files.pending_directory / "first.json").exists())
             self.assertTrue((files.pending_directory / "second.json").exists())
+
+
+class TerminalTests(unittest.TestCase):
+    def test_copy_terminal_size(self) -> None:
+        source_master, source_slave = pty.openpty()
+        target_master, target_slave = pty.openpty()
+        try:
+            termios.tcsetwinsize(source_slave, (42, 132))
+            copy_terminal_size(source_slave, target_slave)
+            self.assertEqual(termios.tcgetwinsize(target_slave), (42, 132))
+        finally:
+            for fd in (source_master, source_slave, target_master, target_slave):
+                os.close(fd)
+
+    def test_copy_terminal_size_ignores_non_tty(self) -> None:
+        read_fd, write_fd = os.pipe()
+        target_master, target_slave = pty.openpty()
+        try:
+            copy_terminal_size(read_fd, target_slave)
+        finally:
+            for fd in (read_fd, write_fd, target_master, target_slave):
+                os.close(fd)
 
 
 if __name__ == "__main__":
