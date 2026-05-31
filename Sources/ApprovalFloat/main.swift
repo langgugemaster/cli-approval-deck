@@ -98,6 +98,8 @@ private final class PixelDuckView: NSView {
 }
 
 private final class PixelButton: NSButton {
+    private var isHovered = false
+
     init(title: String, target: AnyObject?, action: Selector?, height: CGFloat = 30) {
         super.init(frame: .zero)
         self.title = title
@@ -124,10 +126,12 @@ private final class PixelButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        layer?.backgroundColor = PixelTheme.mutedBorder.cgColor
+        isHovered = true
+        refreshColors()
     }
 
     override func mouseExited(with event: NSEvent) {
+        isHovered = false
         refreshColors()
     }
 
@@ -145,7 +149,9 @@ private final class PixelButton: NSButton {
         let border = isEnabled ? PixelTheme.border : PixelTheme.mutedBorder
         contentTintColor = isEnabled ? PixelTheme.text : PixelTheme.mutedText
         layer?.borderColor = border.cgColor
-        layer?.backgroundColor = PixelTheme.background.cgColor
+        layer?.backgroundColor = isHovered && isEnabled
+            ? PixelTheme.mutedBorder.cgColor
+            : PixelTheme.background.cgColor
     }
 }
 
