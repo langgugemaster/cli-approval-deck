@@ -187,7 +187,7 @@ final class ApprovalPanelController: NSWindowController {
     init() {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 493),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
@@ -374,8 +374,9 @@ final class ApprovalPanelController: NSWindowController {
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         panelController = ApprovalPanelController()
+        NSApp.activate(ignoringOtherApps: true)
         panelController?.showPanel()
         makeStatusItem()
     }
