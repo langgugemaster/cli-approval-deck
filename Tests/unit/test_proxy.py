@@ -40,6 +40,25 @@ class DetectPromptTests(unittest.TestCase):
     def test_ignores_non_authorization_menu(self) -> None:
         self.assertIsNone(detect_prompt("Choose a file:\n1. A\n2. B\n3. C\n"))
 
+    def test_detects_codex_tui_approval_prompt(self) -> None:
+        result = detect_prompt(
+            "\x1b[2J\x1b[1;1H$ rm -rf build"
+            "\x1b[3;1Hneeds your approval."
+            "\x1b[5;1H› 1. Yes, proceed"
+            "\x1b[6;1H  2. Yes, and don't ask again for commands that start with `rm`"
+            "\x1b[7;1H  3. No, and tell Codex what to do differently"
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(
+            result[1],
+            [
+                Option("1", "Yes, proceed"),
+                Option("2", "Yes, and don't ask again for commands that start with `rm`"),
+                Option("3", "No, and tell Codex what to do differently"),
+            ],
+        )
+
     def test_strip_ansi(self) -> None:
         self.assertEqual(strip_ansi("\x1b[31mAllow?\x1b[0m\r\n"), "Allow?\n")
 

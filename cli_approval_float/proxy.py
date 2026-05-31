@@ -18,9 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
-OPTION_RE = re.compile(r"^\s*(?:[❯>]\s*)?([1-9])[\.)]\s+(.+?)\s*$")
+CURSOR_RE = re.compile(r"\x1b\[[0-9;?]*[ABCDEFGHJKf]")
+OPTION_RE = re.compile(r"^\s*(?:[❯›>]\s*)?([1-9])[\.)]\s+(.+?)\s*$")
 AUTH_RE = re.compile(
-    r"(?i)(allow|approve|authori[sz]e|permission|proceed|run (?:this |the )?command|"
+    r"(?i)(allow|approve|approval|authori[sz]e|permission|proceed|run (?:this |the )?command|"
     r"execute|授权|允许|确认|是否执行|would you like)"
 )
 
@@ -32,6 +33,7 @@ class Option:
 
 
 def strip_ansi(text: str) -> str:
+    text = CURSOR_RE.sub("\n", text)
     return ANSI_RE.sub("", text).replace("\r", "")
 
 
