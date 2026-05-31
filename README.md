@@ -23,6 +23,10 @@ the duck raises a green checkmark sign and the panel exposes one large approval 
 
 ## Install
 
+Download the latest DMG from the
+[GitHub Releases page](https://github.com/langgugemaster/cli-approval-deck/releases/latest),
+or build it locally:
+
 Build the app and DMG:
 
 ```bash
