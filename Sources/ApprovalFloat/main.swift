@@ -99,6 +99,9 @@ private final class PixelDuckView: NSView {
 
 private final class PixelButton: NSButton {
     private var isHovered = false
+    var hasAction = true {
+        didSet { refreshColors() }
+    }
 
     init(title: String, target: AnyObject?, action: Selector?, height: CGFloat = 30) {
         super.init(frame: .zero)
@@ -146,11 +149,11 @@ private final class PixelButton: NSButton {
     }
 
     private func refreshColors() {
-        let border = isEnabled ? PixelTheme.border : PixelTheme.mutedBorder
-        contentTintColor = isEnabled ? PixelTheme.text : PixelTheme.mutedText
+        let border = hasAction ? PixelTheme.border : PixelTheme.mutedBorder
+        contentTintColor = hasAction ? PixelTheme.text : PixelTheme.mutedText
         layer?.borderColor = border.cgColor
-        layer?.backgroundColor = isHovered && isEnabled
-            ? PixelTheme.mutedBorder.cgColor
+        layer?.backgroundColor = isHovered
+            ? PixelTheme.border.withAlphaComponent(0.48).cgColor
             : PixelTheme.background.cgColor
     }
 }
@@ -265,7 +268,7 @@ final class ApprovalPanelController: NSWindowController {
             height: 54
         )
         confirmButton.alignment = .center
-        confirmButton.isEnabled = false
+        confirmButton.hasAction = false
         self.confirmButton = confirmButton
 
         let footer = makeLabel("DRAG TO MOVE  //  ALWAYS ON TOP  //  LIVE PTY LINK", size: 9, color: PixelTheme.mutedText)
@@ -335,7 +338,7 @@ final class ApprovalPanelController: NSWindowController {
         confirmButton?.title = option == nil
             ? "[ APPROVE REQUEST ] AWAITING REQUEST..."
             : "[ APPROVE REQUEST ]"
-        confirmButton?.isEnabled = option != nil
+        confirmButton?.hasAction = option != nil
     }
 
     @objc private func confirmApproval() {
