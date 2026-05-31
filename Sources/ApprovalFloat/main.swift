@@ -105,6 +105,7 @@ final class ApprovalPanelController: NSWindowController {
     private var pendingApprovals: [PendingApproval] = []
     private var pending: PendingApproval?
     private var timer: Timer?
+    private var isPanelVisible = true
 
     init() {
         let panel = NSPanel(
@@ -145,11 +146,14 @@ final class ApprovalPanelController: NSWindowController {
         content.fillColor = PixelTheme.background
 
         let titleLabel = makeLabel(":: CLI APPROVAL DECK ::", size: 14, color: PixelTheme.border, weight: .heavy)
+        let hideButton = PixelButton(title: "[ _ ]", target: self, action: #selector(hidePanel))
+        hideButton.alignment = .center
+        hideButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
         let closeButton = PixelButton(title: "[ X ]", target: self, action: #selector(closePanel))
         closeButton.alignment = .center
         closeButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
 
-        let titleRow = NSStackView(views: [titleLabel, NSView(), closeButton])
+        let titleRow = NSStackView(views: [titleLabel, NSView(), hideButton, closeButton])
         titleRow.orientation = .horizontal
         titleRow.alignment = .centerY
         titleRow.spacing = 8
@@ -203,7 +207,9 @@ final class ApprovalPanelController: NSWindowController {
     }
 
     @objc private func refresh() {
-        window?.orderFrontRegardless()
+        if isPanelVisible {
+            window?.orderFrontRegardless()
+        }
         do {
             pendingApprovals = try store.loadPending()
         } catch {
@@ -259,15 +265,57 @@ final class ApprovalPanelController: NSWindowController {
     @objc private func closePanel() {
         NSApp.terminate(nil)
     }
+
+    @objc func hidePanel() {
+        isPanelVisible = false
+        window?.orderOut(nil)
+    }
+
+    @objc func showPanel() {
+        isPanelVisible = true
+        window?.orderFrontRegardless()
+    }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: ApprovalPanelController?
+    private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         panelController = ApprovalPanelController()
         panelController?.showWindow(nil)
+        makeStatusItem()
+    }
+
+    private func makeStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.title = "[A]"
+        item.button?.font = PixelTheme.font(size: 11, weight: .bold)
+        item.menu = makeStatusMenu()
+        statusItem = item
+    }
+
+    private func makeStatusMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show Floating Panel", action: #selector(showPanel), keyEquivalent: "")
+        menu.addItem(withTitle: "Hide Floating Panel", action: #selector(hidePanel), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit CLI Approval Deck", action: #selector(quitApp), keyEquivalent: "q")
+        menu.items.forEach { $0.target = self }
+        return menu
+    }
+
+    @objc private func showPanel() {
+        panelController?.showPanel()
+    }
+
+    @objc private func hidePanel() {
+        panelController?.hidePanel()
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
 }
 

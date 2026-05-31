@@ -59,6 +59,33 @@ class DetectPromptTests(unittest.TestCase):
             ],
         )
 
+    def test_detects_claude_code_two_option_permission_prompt(self) -> None:
+        result = detect_prompt(
+            "\x1b[2J\x1b[1;1HClaude needs your permission"
+            "\x1b[3;1H Bash command: rm -rf build"
+            "\x1b[5;1H❯ 1. Yes, allow once"
+            "\x1b[6;1H  2. No, and tell Claude what to do differently"
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(
+            result[1],
+            [
+                Option("1", "Yes, allow once"),
+                Option("2", "No, and tell Claude what to do differently"),
+            ],
+        )
+
+    def test_detects_claude_code_four_option_permission_prompt(self) -> None:
+        result = detect_prompt(
+            "Claude needs your permission\n"
+            "1. Yes, allow once\n"
+            "2. Yes, allow for this session\n"
+            "3. Yes, and switch to auto mode\n"
+            "4. No\n"
+        )
+        self.assertIsNotNone(result)
+
     def test_strip_ansi(self) -> None:
         self.assertEqual(strip_ansi("\x1b[31mAllow?\x1b[0m\r\n"), "Allow?\n")
 

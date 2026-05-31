@@ -48,7 +48,7 @@ def detect_prompt(text: str) -> tuple[str, list[Option]] | None:
             options = [item for item in options if item.key != option.key]
             options.append(option)
     options = sorted(options, key=lambda item: item.key)
-    if len(options) != 3 or not AUTH_RE.search(clean):
+    if not 2 <= len(options) <= 4 or options[0].key != "1" or not AUTH_RE.search(clean):
         return None
     prompt_lines = [line.strip() for line in lines[-12:] if line.strip()]
     return "\n".join(prompt_lines), options
