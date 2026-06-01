@@ -381,6 +381,14 @@ final class ApprovalPanelController: NSWindowController {
         makeStatusItem()
     }
 
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        panelController?.showPanel()
+        return true
+    }
+
     private func makeStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.title = "[A]"
